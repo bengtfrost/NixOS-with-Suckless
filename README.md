@@ -1,30 +1,5 @@
 ---
 
-### Step-by-Step Guide to Publish Your Project
-
-Follow these commands in your terminal.
-
-#### 1. Rename and Prepare the Project Directory
-
-First, let's rename the project directory to `NixOS-with-Suckless` as you requested.
-
-```bash
-# Navigate to the parent directory of your project
-cd ~/Utveckling/
-
-# Rename the project folder
-mv nixos-suckless NixOS-with-Suckless
-
-# Enter the newly renamed project directory
-cd NixOS-with-Suckless
-```
-
-#### 2. Update the README.md
-
-Now, replace the entire content of your existing `README.md` file with the updated version below. This new version includes the correct paths to your images and an important note about how Nix handles `.git` directories.
-
-**(Copy the entire markdown block below and save it as `README.md` in your project root)**
-
 # Declarative Suckless Desktop on NixOS
 
 <div align="center">
