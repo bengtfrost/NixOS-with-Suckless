@@ -1,0 +1,41 @@
+theme = "dark_plus" # A common theme similar to VS Code Dark+, good starting point
+# Or try "catppuccin_mocha_helix" if you install it via Helix themes,
+# or other built-in themes. "adwaita-dark" might not be a direct Helix theme name.
+
+[editor]
+line-number = "relative"
+mouse = false
+# shell = ["zsh", "-l"] # If LSPs need full login environment, usually not needed if PATH is set correctly
+# Completion settings, auto-pairs, etc. can go here
+auto-pairs = true
+true-color = true
+
+[editor.cursor-shape]
+insert = "bar"
+normal = "block"
+select = "underline"
+
+[editor.lsp]
+display-messages = true
+display-inlay-hints = true # If you like inlay hints from LSPs
+
+[editor.statusline]
+left = ["mode", "spinner", "file-name"]
+center = ["version-control"]
+right = [
+  "diagnostics",
+  "selections",
+  "position",
+  "file-encoding",
+  "file-line-ending",
+  "file-type",
+]
+
+[editor.soft-wrap]
+enable = true
+
+[keys.normal]
+space.space = "file_picker"
+space.f = "file_picker"
+space.p = "command_palette"
+# Add other custom keybindings
