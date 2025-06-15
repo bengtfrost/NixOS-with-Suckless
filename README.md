@@ -1,5 +1,6 @@
----
+--
 
+```markdown
 # Declarative Suckless Desktop on NixOS
 
 <div align="center">
@@ -13,7 +14,7 @@
 
 This repository contains a complete, declarative configuration for a minimal and powerful desktop environment on NixOS. It fuses the minimalist philosophy of the [suckless.org](https://suckless.org/) toolset with the reproducible and robust system management of NixOS, using Flakes and Home Manager.
 
-The core principle is to treat the Suckless source code not as something to be manually compiled, but as an integral part of the system's declarative configuration. Patches and custom `config.h` files are applied at build time, resulting in a fully reproducible, custom-tailored desktop environment.
+The core principle is to treat the **manually prepared Suckless source code** as the definitive input for the system build. All patching and `config.def.h` customization is done by you, directly on the source files, *before* invoking the Nix build. Nix then takes these pre-customized sources and builds them within a pure environment, resulting in a fully reproducible, custom-tailored desktop environment.
 
 ## Screenshots
 
@@ -85,22 +86,25 @@ The repository is organized to clearly separate concerns:
 -   **`flake.nix`**: Defines the project's inputs (nixpkgs, home-manager) and orchestrates the build, importing `configuration.nix` and the Home Manager module for the user.
 -   **`configuration.nix`**: Defines the machine. This includes hardware, networking, system-wide packages, fonts, and the `slock` security wrapper.
 -   **`users/blfnix.nix`**: Defines the user environment. It contains the logic for building the custom suckless tools, installing user packages, and generating all configuration files (`.xinitrc`, `.zshrc`, GTK settings, etc.).
--   **`suckless-configs/`**: This is the heart of the customization. It holds the pristine source code for each suckless tool, along with any patches and, most importantly, your modified `config.def.h` files.
+-   **`suckless-configs/`**: This is the heart of the customization. It holds the source code for each suckless tool, which you modify directly.
 
 ## The Declarative Suckless Build Process
 
-The magic happens in `users/blfnix.nix` within the `buildCustomSucklessTool` function. This is a generic Nix derivation factory that:
+The magic happens in `users/blfnix.nix` within the `buildCustomSucklessTool` function. This function creates a Nix derivation that treats your manually prepared source code as its input. It is crucial to understand the division of labor:
 
-1.  Takes the name of a tool (e.g., `dwm`).
-2.  Finds its source code in the `suckless-configs/` directory.
-3.  Copies the user-modified `config.def.h` to `config.h` within the Nix build sandbox.
-4.  Applies any patches listed in the `patches/` subdirectory.
-5.  Compiles the tool using `clang` in a pure, reproducible environment.
-6.  Installs the resulting binary into the Nix store.
+-   **Your Role (Manual Preparation):** Before building, you directly modify the source code in the `suckless-configs/` directory. This includes editing `config.def.h` with your desired settings and applying any necessary patches with standard tools (e.g., `patch -p1 < ...`).
+-   **Nix's Role (Reproducible Build):** After your preparation is complete, `nixos-rebuild switch` executes the Nix derivation.
 
-> **Note on Build Purity:** You asked about excluding `.git` directories. This is handled automatically! When Nix copies a local source directory (like `./suckless-configs/dwm`) into the build environment, its **built-in source filtering** automatically ignores version control directories (`.git`, `.svn`, etc.). This ensures that only the actual source code is part of the build, maintaining purity and preventing unnecessary rebuilds.
+Here is what happens inside the Nix build process itself:
 
-This approach elevates your Suckless C source code to be a first-class citizen of your NixOS configuration. To change a keybinding, you simply edit `suckless-configs/dwm/config.def.h` and rebuild your system.
+1.  **Source Ingestion:** For each tool (e.g., `dwm`), Nix copies your modified source code from the `suckless-configs/dwm` directory into a pristine, isolated build environment.
+2.  **Configuration Finalization:** A build script inside this isolated environment copies your customized `config.def.h` to `config.h`. This ensures your personal keybindings, fonts, and colors are used for the compilation, as per the standard Suckless build method.
+3.  **Compilation:** The code is then compiled using `clang` with all dependencies provided by Nixpkgs in a pure environment, guaranteeing a consistent result every time.
+4.  **Installation:** The final, compiled binaries are installed into a unique path in the Nix store (e.g., `/nix/store/...-dwm-blfnix-6.5`), which are then linked into your user profile.
+
+> **Note on the `patches/` directories:** The `patches/` subdirectories in this repository exist **only as a convenient place for you to store patch files**. They are **not** used automatically by the Nix build process. Patching must be done by you on the source code before a build.
+
+This approach elevates your Suckless C source code to be a first-class citizen of your NixOS configuration. To change a keybinding, you simply edit `suckless-configs/dwm/config.def.h`, and a `nixos-rebuild switch` will compile and deploy the new version.
 
 ## Key Configuration Details
 
@@ -168,3 +172,4 @@ The `nix-update-system` alias is defined in `.zshrc` and points to the `sudo nix
 
 ---
 *This configuration is provided under the MIT License.*
+```
