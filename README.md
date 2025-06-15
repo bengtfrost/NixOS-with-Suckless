@@ -25,7 +25,6 @@ Now, replace the entire content of your existing `README.md` file with the updat
 
 **(Copy the entire markdown block below and save it as `README.md` in your project root)**
 
-```markdown
 # Declarative Suckless Desktop on NixOS
 
 <div align="center">
