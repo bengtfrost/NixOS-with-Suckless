@@ -193,4 +193,3 @@ The `nix-update-system` alias is defined in `.zshrc` and points to the `sudo nix
 
 ---
 *This configuration is provided under the MIT License.*
-```
