@@ -77,31 +77,31 @@ let
     customConfigFileInSrc = "config.def.h"; makeUsesConfigFile = "config.h";
   };
 
-myST = buildCustomSucklessTool {
-  pname = "st-blfnix";
-  version = "0.9.2-blfnix-custom";
-  toolName = "st";
-  nativeBuildInputs = [ pkgs.ncurses ]; 
-  buildInputs = with pkgs; [
-    harfbuzz fribidi fontconfig freetype xorg.libXext
-  ];
-  customConfigFileInSrc = "config.def.h";
-  makeUsesConfigFile = "config.h";
+  myST = buildCustomSucklessTool {
+    pname = "st-blfnix";
+    version = "0.9.2-blfnix-custom";
+    toolName = "st";
+    nativeBuildInputs = [ pkgs.ncurses ]; 
+    buildInputs = with pkgs; [
+      harfbuzz fribidi fontconfig freetype xorg.libXext
+    ];
+    customConfigFileInSrc = "config.def.h";
+    makeUsesConfigFile = "config.h";
 
-  installPhase = ''
-    runHook preInstall
+    installPhase = ''
+      runHook preInstall
 
-    # Create terminfo directory with write permissions
-    mkdir -p "$out/share/terminfo"
-    chmod -R u+w "$out/share/terminfo"
+      # Create terminfo directory with write permissions
+      mkdir -p "$out/share/terminfo"
+      chmod -R u+w "$out/share/terminfo"
 
-    # Use TERMINFO env var to control installation path
-    export TERMINFO="$out/share/terminfo"
-    make install PREFIX="$out"
+      # Use TERMINFO env var to control installation path
+      export TERMINFO="$out/share/terminfo"
+      make install PREFIX="$out"
 
-    runHook postInstall
+      runHook postInstall
   '';
-};
+  };
 
   myDMenu = buildCustomSucklessTool {
     pname = "dmenu-blfnix"; version = "5.3-blfnix-custom"; toolName = "dmenu";
@@ -124,7 +124,7 @@ myST = buildCustomSucklessTool {
     # buildInputs = [ pkgs.shadow pkgs.xorg.libXrandr pkgs.xorg.libXext pkgs.libxcrypt ];
     # customConfigFileInSrc = "config.def.h"; makeUsesConfigFile = "config.h";
   # };
-          
+        
   # Xresources configuration (now more generic)
   xresourcesConfig = ''
     ! ~/.Xresources for blfnix
@@ -171,10 +171,27 @@ myST = buildCustomSucklessTool {
     *.color15: #ffffff
   '';
 
+  # We construct the correct data path by referring to the packages
+  # that are ALREADY in the system configuration. We do not add them here.
+  # correctXdgDataDirs = pkgs.lib.makeSearchPath "share" [
+    # pkgs.gsettings-desktop-schemas
+    # pkgs.xdg-desktop-portal-gtk
+    # pkgs.gtk3
+    # pkgs.gtk4
+  # ];  
+
 in {
   home.username = "blfnix";
   home.homeDirectory = "/home/blfnix";
   home.stateVersion = "25.05";
+
+  # This is the declarative way to add directories to your PATH.
+  # It correctly appends to the path without breaking other environment variables.
+  home.sessionPath = [
+    "$HOME/.cargo/bin"
+    "$HOME/.local/bin"
+    "$HOME/.npm-global/bin"
+  ];
 
   home.packages = with pkgs; [
     # === Custom Suckless Tools (slock removed) ===
@@ -185,10 +202,19 @@ in {
     # === General Desktop Apps & CLI Utilities ===
     p7zip gnupg pinentry-tty curl file tree sqlite xdg-utils mpv
     ffmpeg cmus qbittorrent gimp3 libreoffice simple-scan scrot
-    thunderbird
+    thunderbird brave
 
     # === Network tools ===
     nmap wireshark
+
+    # === system-level configuration file - must be at system level ===
+    # Core GTK/GSettings functionality. Installing these at the system-level
+    # ensures the environment (XDG_DATA_DIRS) is constructed correctly for all users.
+    # glib                        # Provides the gsettings CLI tool
+    # gsettings-desktop-schemas   # Provides base desktop schemas
+    # xdg-desktop-portal-gtk      # Provides GTK4 portal backend and schemas
+    # gtk3                        # Provides GTK3 schemas
+    # gtk4                        # Provides GTK4 schemas
 
     # === Helix Editor and its LSPs/Formatters ===
     helix
@@ -224,35 +250,52 @@ in {
   };
 
   # --- .xinitrc to start your custom dwm session ---
-    home.file.".xinitrc" = {
-    text = ''
-      #!/usr/bin/env sh
+  home.file.".xinitrc" = {
+  text = ''
+    #!/usr/bin/env sh
 
-      # Load Xresources
-      [ -f "$HOME/.Xresources" ] && xrdb -merge "$HOME/.Xresources"
+    # Load system environment
+    [ -f /etc/profile ] && . /etc/profile
 
-      # Compositor
-      picom --daemon &
+    # Theme setup is now handled by sessionVariables
+    export GTK_THEME QT_STYLE_OVERRIDE XCURSOR_THEME XCURSOR_SIZE
 
-      # Wallpaper
-      feh --bg-scale "$HOME/.wallpapers/mighty_trees_road.jpg" &
+    # Compile GSettings schemas
+    mkdir -p "$HOME/.local/share/glib-2.0/schemas"
+    export XDG_DATA_DIRS="${config.home.sessionVariables.XDG_DATA_DIRS}"
+    ${pkgs.glib.bin}/bin/glib-compile-schemas "$HOME/.local/share/glib-2.0/schemas"
+      
+    # Load Xresources
+    [ -f "$HOME/.Xresources" ] && xrdb -merge "$HOME/.Xresources"
 
-      # PolicyKit agent
-      # Use the full path provided by the nix package to ensure it's found
-      ${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1 &
+    # Compositor
+    picom --daemon &
 
-      # Auto‑lock after 10 min
-      xautolock -time 10 -locker slock &
+    # Wallpaper
+    feh --bg-scale "$HOME/.wallpapers/mighty_trees_road.jpg" &
 
-      # Status bar
-      ( while true; do slstatus; sleep 1; done ) &
+    # PolicyKit agent
+    ${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1 &
 
-      # Finally start dwm under dbus
-      exec dbus-launch --exit-with-session dwm
-    '';
-    executable = true;
-  }; 
-  
+    # Auto‑lock after 10 min
+    xautolock -time 10 -locker slock &
+
+    # Start systemd user instance
+    if command -v systemctl >/dev/null; then
+      systemctl --user start graphical-session.target
+    fi
+
+    # Status bar
+    ( while true; do slstatus; sleep 1; done ) &
+
+    # Finally start dwm under dbus
+    # exec dbus-launch --exit-with-session dwm
+    # Replace dbus-launch with proper systemd integration
+    exec systemd-cat --identifier=dwm dwm
+  '';
+  executable = true;
+};
+
   # --- ZSH CONFIGURATION ---
   programs.zsh = {
     enable = true;
@@ -268,6 +311,8 @@ in {
     
     autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
+    enableCompletion = true;
+    completionInit = "autoload -U compinit && compinit";
     plugins = [{ name = "zsh-autocomplete"; src = pkgs.zsh-autocomplete; }];
     shellAliases = {
       ls = "ls --color=auto -F";
@@ -291,9 +336,11 @@ in {
     initContent = ''
       bindkey -v # Enable Vi Keybindings
 
-      export PATH="$HOME/.cargo/bin:$PATH"
-      export PATH="$HOME/.local/bin:$PATH"
-      export PATH="$HOME/.npm-global/bin:$PATH"
+      # === BAD SETTINGS - INTERFERING WITH SYSTEM ENV - AVOID! ===
+      # Correct way - see above
+      # export PATH="$HOME/.cargo/bin:$PATH"
+      # export PATH="$HOME/.local/bin:$PATH"
+      # export PATH="$HOME/.npm-global/bin:$PATH"
 
       export KEYTIMEOUT=150
 
@@ -465,6 +512,7 @@ in {
     gtk-font-name=Arimo Nerd Font 9
     gtk-cursor-theme-name=Adwaita
     gtk-cursor-theme-size=24
+    gtk-application-prefer-dark-theme=true
   '';
 
   home.file.".gtkrc-2.0".text = ''
@@ -509,7 +557,46 @@ in {
     GIT_TERMINAL_PROMPT = "1";
     FZF_ALT_C_COMMAND = "fd --type d --hidden --follow --exclude .git";
     TERMINAL = "${myST}/bin/st"; # Your custom ST
-    BROWSER = "firefox";
+    BROWSER = "brave";
+
+    # Consolidated theme variables
     GTK_THEME = "Adwaita-dark";
+    QT_STYLE_OVERRIDE = "adwaita-dark";
+    XCURSOR_THEME = "Adwaita";
+    XCURSOR_SIZE = "24";
+
+    # This is the DEFINITIVE FIX. We construct the correct schema path and
+    # prepend it to the existing environment, ensuring all apps see it first.
+    XDG_DATA_DIRS = let
+      # List of all packages that provide schemas, which are installed in configuration.nix
+      schemaPkgs = [
+        pkgs.gsettings-desktop-schemas
+        pkgs.gtk3
+        pkgs.gtk4
+        pkgs.xdg-desktop-portal-gtk
+      # Add any other GTK apps here if they have their own schemas
+      ];
+      # Use a Nix function to build the correct search path string
+      schemaPath = pkgs.lib.makeSearchPath "share" schemaPkgs;
+    in "${schemaPath}:${builtins.getEnv "XDG_DATA_DIRS"}";
+  };
+  # Add this systemd service to handle schema compilation
+  systemd.user.services.compile-gschemas = {
+    Unit.Description = "Compile GSettings schemas";
+    Service = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.glib.bin}/bin/glib-compile-schemas ${config.home.homeDirectory}/.local/share/glib-2.0/schemas";
+    };
+    Install.WantedBy = ["default.target"];
+  };
+
+  # Add this to create a wrapper for gsettings
+  home.file.".local/bin/gsettings-wrapper" = {
+    text = ''
+      #!/bin/sh
+      export XDG_DATA_DIRS="${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}:${pkgs.gtk4}/share/gsettings-schemas/${pkgs.gtk4.name}:${pkgs.xdg-desktop-portal-gtk}/share:/usr/share:/usr/local/share"
+      exec ${pkgs.glib.bin}/bin/gsettings "$@"
+    '';
+    executable = true;
   };
 }

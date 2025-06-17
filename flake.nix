@@ -1,3 +1,4 @@
+# flake.nix
 {
   description = "Bengt's Declarative NixOS System with Suckless WM, Flakes, and Home Manager";
 

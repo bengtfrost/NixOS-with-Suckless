@@ -8,6 +8,15 @@
   boot.loader.efi.canTouchEfiVariables = true;
   boot.initrd.luks.devices."luks-8e49ba55-1183-47f4-86af-d1a814d1ef3c".device = "/dev/disk/by-uuid/8e49ba55-1183-47f4-86af-d1a814d1ef3c";
 
+  # Security Hardening
+  boot.kernelParams = [
+  "slab_nomerge"
+  "init_on_alloc=1"
+  "page_alloc.shuffle=1"
+  ];
+
+  boot.loader.systemd-boot.configurationLimit = 10;
+
   networking.hostName = "nixos";
   networking.networkmanager.enable = true;
   programs.nm-applet.enable = false;  # Explicitly disabled for DWM
@@ -41,7 +50,12 @@
     pulse.enable = true;
   };
 
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings = {
+  experimental-features = ["nix-command" "flakes"];
+  auto-optimise-store = true;
+  trusted-users = ["root" "blfnix"];
+  };
+  
   nixpkgs.config.allowUnfree = true;
   nix.gc = {
     automatic = true;
@@ -49,8 +63,7 @@
     options = "--delete-older-than 30d";
     dates = "weekly";
   };
-  boot.loader.systemd-boot.configurationLimit = 10;
-
+  
   programs.zsh.enable = true;
 
   users.users.blfnix = {
@@ -61,13 +74,53 @@
     # packages = [ ];   # User packages are managed by Home Manager
   };
 
-  programs.firefox.enable = true;
+  # programs.firefox.enable = true;
 
   environment.systemPackages = with pkgs; [
     wget gitMinimal fontconfig
     xorg.xinit xorg.xrdb xorg.xsetroot xorg.xev
-    slock # ADDED: Install slock system-wide from Nixpkgs
+    slock # Install slock system-wide from Nixpkgs
+    brave
+
+    # Core GTK/GSettings functionality. Installing these at the system-level
+    # ensures the environment (XDG_DATA_DIRS) is constructed correctly for all users.
+    glib                        # Provides the gsettings CLI tool
+    gsettings-desktop-schemas   # Provides base desktop schemas
+    xdg-desktop-portal-gtk      # Provides GTK4 portal backend and schemas
+    gtk3                        # Provides GTK3 schemas
+    gtk4                        # Provides GTK4 schemas
   ];
+
+  # Ensure DBus and polkit are enabled
+  services.dbus.enable = true;
+  security.polkit.enable = true;
+
+  environment.etc."profile.d/gsettings-wrapper.sh" = {
+  text = ''
+    #!/bin/sh
+    # System-wide wrapper for gsettings
+    export XDG_DATA_DIRS="${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}:${pkgs.gtk4}/share/gsettings-schemas/${pkgs.gtk4.name}:${pkgs.xdg-desktop-portal-gtk}/share:/usr/share:/usr/local/share:$XDG_DATA_DIRS"
+    exec ${pkgs.glib.bin}/bin/gsettings "$@"
+  '';
+  mode = "0755";
+  };
+
+  # System-wide GTK dark theme (fallback)
+  environment.etc."xdg/gtk-3.0/settings.ini".text = ''
+    [Settings]
+    gtk-theme-name=Adwaita-dark
+    gtk-icon-theme-name=Adwaita
+    gtk-font-name=Arimo Nerd Font 9
+    gtk-application-prefer-dark-theme=1
+  '';
+
+  environment.etc."xdg/gtk-4.0/settings.ini".text = ''
+    [Settings]
+    gtk-theme-name=Adwaita-dark
+    gtk-icon-theme-name=Adwaita
+    gtk-font-name=Arimo Nerd Font 9
+    gtk-application-prefer-dark-theme=1
+  '';
 
   security.wrappers.slock = { # The name of the command that will be wrapped
     source = "${pkgs.slock}/bin/slock"; # Path to the original binary
@@ -102,12 +155,25 @@
     enable = true;
     nssmdns4 = true;
     openFirewall = true;
+    
+    # Completely disable publishing features
+    publish = {
+      enable = false;
+      domain = false;
+      userServices = false;
+      workstation = false;
+      addresses = false;
+      hinfo = false;
+    };
+
+    # Explicit service configuration
+    extraServiceFiles = {
+      # Create empty service files for protocols we're not using
+      smb = "${pkgs.writeText "smb.service" ""}";
+      ssh = "${pkgs.writeText "ssh.service" ""}";
+      sftp-ssh = "${pkgs.writeText "sftp-ssh.service" ""}";
+    };
   };
-
-  # Minimal System-Wide Environment Variables
-  # environment.sessionVariables = {
-    # PAGER = "less"; # Most user-specific vars go into home.sessionVariables
-  # };
-
+  
   system.stateVersion = "25.05";
 }

@@ -29,8 +29,8 @@ The core principle is to treat the **manually prepared Suckless source code** as
 - [System Structure](#system-structure)
 - [The Declarative Suckless Build Process](#the-declarative-suckless-build-process)
 - [Key Configuration Details](#key-configuration-details)
-  - [Slock: The Exception](#slock-the-exception)
-  - [GTK Theming without Daemons](#gtk-theming-without-daemons)
+  - [Solving GTK Theming and GSettings](#solving-gtk-theming-and-gsettings)
+  - [System Hardening and Optimization](#system-hardening-and-optimization)
   - [The `xinitrc` Session](#the-xinitrc-session)
 - [Installation and Replication](#installation-and-replication)
 - [Daily Workflow](#daily-workflow)
@@ -47,128 +47,88 @@ By combining them, we achieve the ultimate goal: a system where even our custom-
 ## Features
 
 -   **Fully Declarative:** The entire system is managed by the Nix Flake in this repository.
--   **Custom Suckless Stack:**
-    -   **`dwm`**: Dynamic Window Manager, custom-built from source with patches for full gaps, movestack, and bar height.
-    -   **`st`**: Simple Terminal, custom-built with patches for ligatures and scrollback.
-    -   **`dmenu`**: Dynamic Menu, custom-built with a line-height patch.
-    -   **`slstatus`**: Status bar for `dwm`, custom-built with user-configured components.
--   **Secure Screen Locking:** `slock` is installed from the Nixpkgs repository and given proper SUID permissions via a security wrapper for robustness.
+-   **Custom Suckless Stack:** `dwm`, `st`, `dmenu`, and `slstatus` are all built from user-customized local source code.
+-   **Robust GTK/GSettings Theming:** A clean, declarative solution ensures GTK2, GTK3, and GTK4 applications are themed correctly without daemons or complex wrappers.
 -   **Home Manager:** Manages all user-level configuration, including dotfiles, packages, services, and environment variables.
 -   **Minimalist Session Management:** Uses a declarative `~/.xinitrc` file to launch the `dwm` session via `startx`, which is triggered automatically on console login.
--   **Consistent Theming:** Manual GTK/QT configuration ensures a consistent Adwaita-dark theme for graphical applications without needing the heavy `dconf` daemon.
--   **Modern Shell:** Zsh with auto-suggestions, syntax highlighting, and useful aliases.
--   **Configured Applications:** Includes pre-configured settings for `helix`, `git`, `zathura`, and more.
+-   **System Hardening:** Includes security-focused kernel parameters and a hardened Avahi configuration.
+-   **Nix Store Optimization:** Configured for automatic garbage collection and store optimization.
+-   **Modern Shell:** Zsh with auto-suggestions, syntax highlighting, and useful aliases, with `PATH` managed declaratively by Home Manager.
 
 ## System Structure
 
 The repository is organized to clearly separate concerns:
 
-```
-.
-├── flake.nix                 # The central entry point for the entire system build.
-├── configuration.nix         # System-level NixOS settings (kernel, filesystems, etc.).
-├── hardware-configuration.nix  # Hardware-specific settings (auto-generated).
-├── users/
-│   └── blfnix.nix            # User-level configuration via Home Manager.
-├── suckless-configs/         # Raw source code for the suckless tools. This is where you edit config.def.h!
-│   ├── dwm/
-│   ├── st/
-│   ├── dmenu/
-│   └── slstatus/
-├── dotfiles/                 # Static configuration files (e.g., for helix) managed by Home Manager.
-│   └── helix/
-└── assets/                   # Screenshots for the README.
-    ├── nix-suckless-apps.png
-    └── nix-suckless-desktop.png
-```
 
--   **`flake.nix`**: Defines the project's inputs (nixpkgs, home-manager) and orchestrates the build, importing `configuration.nix` and the Home Manager module for the user.
--   **`configuration.nix`**: Defines the machine. This includes hardware, networking, system-wide packages, fonts, and the `slock` security wrapper.
--   **`users/blfnix.nix`**: Defines the user environment. It contains the logic for building the custom suckless tools, installing user packages, and generating all configuration files (`.xinitrc`, `.zshrc`, GTK settings, etc.).
--   **`suckless-configs/`**: This is the heart of the customization. It holds the source code for each suckless tool, which you modify directly.
+.
+├── flake.nix # The central entry point for the entire system build.
+├── configuration.nix # System-level NixOS settings (kernel, packages, etc.).
+├── hardware-configuration.nix # Hardware-specific settings (auto-generated).
+├── users/
+│ └── blfnix.nix # User-level configuration via Home Manager.
+├── suckless-configs/ # Raw source code for the suckless tools. This is where you edit config.def.h!
+│ ├── ...
+├── dotfiles/ # Static configuration files (e.g., for helix).
+│ └── ...
+└── assets/ # Screenshots for the README.
+├── nix-suckless-apps.png
+└── nix-suckless-desktop.png
+
+Generated code
+-   **`flake.nix`**: Defines the project's inputs (nixpkgs, home-manager) and orchestrates the build.
+-   **`configuration.nix`**: Defines the machine, including system-wide packages, fonts, and security settings.
+-   **`users/blfnix.nix`**: Defines the user environment, containing the Suckless build logic and all user-level configuration.
+-   **`suckless-configs/`**: The heart of the customization. It holds the source code for each suckless tool, which you modify directly.
 
 ## The Declarative Suckless Build Process
 
 The magic happens in `users/blfnix.nix` within the `buildCustomSucklessTool` function. This function creates a Nix derivation that treats your manually prepared source code as its input. It is crucial to understand the division of labor:
 
--   **Your Role (Manual Preparation):** Before building, you directly modify the source code in the `suckless-configs/` directory. This includes editing `config.def.h` with your desired settings and applying any necessary patches with standard tools (e.g., `patch -p1 < ...`).
--   **Nix's Role (Reproducible Build):** After your preparation is complete, `nixos-rebuild switch` executes the Nix derivation.
+-   **Your Role (Manual Preparation):** Before building, you directly modify the source code in the `suckless-configs/` directory. This includes editing `config.def.h` and applying any necessary patches with standard tools.
+-   **Nix's Role (Reproducible Build):** After your preparation is complete, `nixos-rebuild switch` executes the Nix derivation, compiling your customized code in a pure environment.
 
-Here is what happens inside the Nix build process itself:
-
-1.  **Source Ingestion:** For each tool (e.g., `dwm`), Nix copies your modified source code from the `suckless-configs/dwm` directory into a pristine, isolated build environment.
-2.  **Configuration Finalization:** A build script inside this isolated environment copies your customized `config.def.h` to `config.h`. This ensures your personal keybindings, fonts, and colors are used for the compilation, as per the standard Suckless build method.
-3.  **Compilation:** The code is then compiled using `clang` with all dependencies provided by Nixpkgs in a pure environment, guaranteeing a consistent result every time.
-4.  **Installation:** The final, compiled binaries are installed into a unique path in the Nix store (e.g., `/nix/store/...-dwm-blfnix-6.5`), which are then linked into your user profile.
-
-> **Note on the `patches/` directories:** The `patches/` subdirectories in this repository exist **only as a convenient place for you to store patch files**. They are **not** used automatically by the Nix build process. Patching must be done by you on the source code before a build.
-
-This approach elevates your Suckless C source code to be a first-class citizen of your NixOS configuration. To change a keybinding, you simply edit `suckless-configs/dwm/config.def.h`, and a `nixos-rebuild switch` will compile and deploy the new version.
+> **Note on the `patches/` directories:** These exist only as a convenient place to store patch files. Patching must be done by you on the source code before a build.
 
 ## Key Configuration Details
 
-### Slock: The Exception
+### Solving GTK Theming and GSettings
 
-While `dwm`, `st`, `dmenu`, and `slstatus` are built from source, `slock` is installed directly from the Nixpkgs repository. This is a deliberate security decision. `slock` requires elevated (root) permissions to function correctly. Instead of managing this manually, we leverage NixOS's robust `security.wrappers` feature to create a secure SetUID wrapper for the pre-built, trusted package from Nixpkgs.
+Getting modern GTK applications to respect themes in a minimal, non-GNOME environment is a significant challenge. This configuration solves it cleanly with a three-part strategy:
 
-### GTK Theming without Daemons
+1.  **System-Level Packages:** All core GTK libraries (`gtk3`, `gtk4`), the `gsettings` tool (`glib`), and schema providers (`gsettings-desktop-schemas`) are installed in `configuration.nix`. This provides a stable, system-wide foundation and ensures a correctly constructed base environment.
+2.  **Declarative `settings.ini` Files:** The desired theme and font settings are written to `~/.config/gtk-3.0/settings.ini` and `~/.config/gtk-4.0/settings.ini` by Home Manager. This is the "source of truth" for the theme.
+3.  **Session-Start Schema Compilation:** The `.xinitrc` file executes `glib-compile-schemas` when the graphical session starts. This crucial step reads all available schemas (from the system-installed packages) and creates a fast-loading binary cache in the user's home directory. This cache is what GTK applications actually use, resolving all discovery issues.
 
-To maintain a minimal environment, this setup avoids the `dconf` service typically used for GTK settings. Instead, it generates `settings.ini` files for GTK2, GTK3, and GTK4 directly. This forces modern applications to use the simple file-based configuration backend, providing consistent dark theming and font rendering for all graphical apps without any background daemons.
+This combination avoids complex wrappers, environment variable hacks, and unnecessary daemons like `dconf`.
+
+### System Hardening and Optimization
+
+This configuration includes several non-default settings for improved security and performance:
+-   **Kernel Parameters:** `slab_nomerge`, `init_on_alloc=1`, and `page_alloc.shuffle=1` are enabled for memory allocation hardening.
+-   **Nix Store Optimization:** `nix.settings.auto-optimise-store = true;` is enabled to reduce storage space by hard-linking identical files.
+-   **Hardened Services:** The Avahi daemon is configured with publishing features explicitly disabled for a reduced attack surface.
 
 ### The `xinitrc` Session
 
-The entire graphical session is defined declaratively in `users/blfnix.nix` and generated as `~/.xinitrc`. This script is responsible for:
--   Loading Xresources (`xrdb`).
--   Starting the `picom` compositor.
--   Setting the wallpaper with `feh`.
--   Launching the `polkit-gnome` authentication agent (for privilege escalation dialogs).
--   Running `xautolock` with `slock`.
--   Starting the `slstatus` bar in a loop.
--   Finally, executing `dwm` itself.
+The declarative `.xinitrc` is the heart of the user session. Beyond launching `dwm` and its companion apps, it now includes:
+-   The `glib-compile-schemas` command to ensure GTK theming works.
+-   A switch from `dbus-launch` to `systemd-cat` for executing `dwm`. This provides better integration with the systemd journal, making logs for the window manager accessible via `journalctl --identifier=dwm`.
 
 ## Installation and Replication
 
 To use this configuration on your own machine:
 
 1.  **Prerequisites**: You need a working NixOS installation with Flakes enabled.
-
-2.  **Clone the Repository**:
-    ```bash
-    git clone https://github.com/bengtfrost/NixOS-with-Suckless.git
-    cd NixOS-with-Suckless
-    ```
-
-3.  **Adapt for Your Hardware**:
-    **CRITICAL:** You **must** replace `hardware-configuration.nix` with the one generated for your own machine during your NixOS installation (usually found at `/etc/nixos/hardware-configuration.nix`).
-
-4.  **Adapt for Your User**:
-    -   You may want to rename `users/blfnix.nix` to `users/your-username.nix`.
-    -   In `flake.nix`, change `home-manager.users.blfnix` to `home-manager.users.your-username`.
-    -   In `configuration.nix`, change `users.users.blfnix` to `users.users.your-username`.
-    -   In `users/your-username.nix`, update the `home.username` and `home.homeDirectory` fields.
-
-5.  **Build the System**:
-    Run the `nixos-rebuild` command from within the repository directory. The `switch` command will build and immediately activate the new configuration.
-    ```bash
-    sudo nixos-rebuild switch --flake .#nixos
-    ```
+2.  **Clone the Repository**: `git clone https://github.com/bengtfrost/NixOS-with-Suckless.git`
+3.  **Adapt for Your Hardware**: **CRITICAL:** Replace `hardware-configuration.nix` with the one from your machine.
+4.  **Adapt for Your User**: Update usernames in `flake.nix`, `configuration.nix`, and `users/blfnix.nix`.
+5.  **Build the System**: `sudo nixos-rebuild switch --flake .#nixos`
 
 ## Daily Workflow
 
--   **To change a `dwm` keybinding:**
-    1.  Edit `suckless-configs/dwm/config.def.h`.
-    2.  Run your build alias: `nix-update-system`.
-
--   **To change your terminal's appearance:**
-    1.  Edit `suckless-configs/st/config.def.h`.
-    2.  Run `nix-update-system`.
-
--   **To add a new application (e.g., `inkscape`):**
-    1.  Add `pkgs.inkscape` to the `home.packages` list in `users/blfnix.nix`.
-    2.  Run `nix-update-system`.
-
-The `nix-update-system` alias is defined in `.zshrc` and points to the `sudo nixos-rebuild switch` command, ensuring a consistent workflow for all system changes.
+-   **To change a `dwm` keybinding:** Edit `suckless-configs/dwm/config.def.h` and run `nix-update-system`.
+-   **To change your terminal's appearance:** Edit `suckless-configs/st/config.def.h` and run `nix-update-system`.
+-   **To add a new application:** Add it to `home.packages` in `users/blfnix.nix` and run `nix-update-system`.
 
 ---
 *This configuration is provided under the MIT License.*
-
