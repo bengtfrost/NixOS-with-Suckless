@@ -1,5 +1,3 @@
----
-
 # Declarative Suckless Desktop on NixOS
 
 <div align="center">
@@ -59,22 +57,22 @@ By combining them, we achieve the ultimate goal: a system where even our custom-
 
 The repository is organized to clearly separate concerns:
 
-
+```
 .
-├── flake.nix # The central entry point for the entire system build.
-├── configuration.nix # System-level NixOS settings (kernel, packages, etc.).
-├── hardware-configuration.nix # Hardware-specific settings (auto-generated).
+├── flake.nix                 # The central entry point for the entire system build.
+├── configuration.nix         # System-level NixOS settings (kernel, packages, etc.).
+├── hardware-configuration.nix  # Hardware-specific settings (auto-generated).
 ├── users/
-│ └── blfnix.nix # User-level configuration via Home Manager.
-├── suckless-configs/ # Raw source code for the suckless tools. This is where you edit config.def.h!
-│ ├── ...
-├── dotfiles/ # Static configuration files (e.g., for helix).
-│ └── ...
-└── assets/ # Screenshots for the README.
-├── nix-suckless-apps.png
-└── nix-suckless-desktop.png
+│   └── blfnix.nix            # User-level configuration via Home Manager.
+├── suckless-configs/         # Raw source code for the suckless tools. This is where you edit config.def.h!
+│   ├── ...
+├── dotfiles/                 # Static configuration files (e.g., for helix).
+│   └── ...
+└── assets/                   # Screenshots for the README.
+    ├── nix-suckless-apps.png
+    └── nix-suckless-desktop.png
+```
 
-Generated code
 -   **`flake.nix`**: Defines the project's inputs (nixpkgs, home-manager) and orchestrates the build.
 -   **`configuration.nix`**: Defines the machine, including system-wide packages, fonts, and security settings.
 -   **`users/blfnix.nix`**: Defines the user environment, containing the Suckless build logic and all user-level configuration.
