@@ -560,7 +560,11 @@ in {
     BROWSER = "brave";
 
     # Consolidated theme variables
-    GTK_THEME = "Adwaita-dark";
+    # GTK_THEME = "Adwaita-dark";
+    # Use the forceful "Theme:Variant" syntax to ensure dark mode is applied, bypassing
+    # the complex settings daemons and portal infrastructure that are absent in a minimal
+    # window manager setup - libreoffice, firefox, brave browser to respect settings
+    GTK_THEME = "Adwaita:dark"; # <-- THIS IS THE FIX
     QT_STYLE_OVERRIDE = "adwaita-dark";
     XCURSOR_THEME = "Adwaita";
     XCURSOR_SIZE = "24";
