@@ -81,46 +81,14 @@
     xorg.xinit xorg.xrdb xorg.xsetroot xorg.xev
     slock # Install slock system-wide from Nixpkgs
     brave
-
-    # Core GTK/GSettings functionality. Installing these at the system-level
-    # ensures the environment (XDG_DATA_DIRS) is constructed correctly for all users.
-    glib                        # Provides the gsettings CLI tool
-    gsettings-desktop-schemas   # Provides base desktop schemas
-    xdg-desktop-portal-gtk      # Provides GTK4 portal backend and schemas
     gtk3                        # Provides GTK3 schemas
     gtk4                        # Provides GTK4 schemas
+    xdg-desktop-portal-gtk      # Provides GTK4 portal backend and schemas
   ];
 
   # Ensure DBus and polkit are enabled
   services.dbus.enable = true;
   security.polkit.enable = true;
-
-  environment.etc."profile.d/gsettings-wrapper.sh" = {
-  text = ''
-    #!/bin/sh
-    # System-wide wrapper for gsettings
-    export XDG_DATA_DIRS="${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}:${pkgs.gtk4}/share/gsettings-schemas/${pkgs.gtk4.name}:${pkgs.xdg-desktop-portal-gtk}/share:/usr/share:/usr/local/share:$XDG_DATA_DIRS"
-    exec ${pkgs.glib.bin}/bin/gsettings "$@"
-  '';
-  mode = "0755";
-  };
-
-  # System-wide GTK dark theme (fallback)
-  environment.etc."xdg/gtk-3.0/settings.ini".text = ''
-    [Settings]
-    gtk-theme-name=Adwaita-dark
-    gtk-icon-theme-name=Adwaita
-    gtk-font-name=Arimo Nerd Font 9
-    gtk-application-prefer-dark-theme=1
-  '';
-
-  environment.etc."xdg/gtk-4.0/settings.ini".text = ''
-    [Settings]
-    gtk-theme-name=Adwaita-dark
-    gtk-icon-theme-name=Adwaita
-    gtk-font-name=Arimo Nerd Font 9
-    gtk-application-prefer-dark-theme=1
-  '';
 
   security.wrappers.slock = { # The name of the command that will be wrapped
     source = "${pkgs.slock}/bin/slock"; # Path to the original binary

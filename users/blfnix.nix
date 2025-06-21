@@ -2,7 +2,7 @@
 { pkgs, config, lib, inputs, flake-root, ... }:
 
 let
-    sucklessConfigsDir = flake-root + "/suckless-configs";
+  sucklessConfigsDir = flake-root + "/suckless-configs";
 
   buildCustomSucklessTool = {
     pname, version, toolName,
@@ -259,12 +259,7 @@ in {
 
     # Theme setup is now handled by sessionVariables
     export GTK_THEME QT_STYLE_OVERRIDE XCURSOR_THEME XCURSOR_SIZE
-
-    # Compile GSettings schemas
-    mkdir -p "$HOME/.local/share/glib-2.0/schemas"
-    export XDG_DATA_DIRS="${config.home.sessionVariables.XDG_DATA_DIRS}"
-    ${pkgs.glib.bin}/bin/glib-compile-schemas "$HOME/.local/share/glib-2.0/schemas"
-      
+    
     # Load Xresources
     [ -f "$HOME/.Xresources" ] && xrdb -merge "$HOME/.Xresources"
 
@@ -568,39 +563,5 @@ in {
     QT_STYLE_OVERRIDE = "adwaita-dark";
     XCURSOR_THEME = "Adwaita";
     XCURSOR_SIZE = "24";
-
-    # This is the DEFINITIVE FIX. We construct the correct schema path and
-    # prepend it to the existing environment, ensuring all apps see it first.
-    XDG_DATA_DIRS = let
-      # List of all packages that provide schemas, which are installed in configuration.nix
-      schemaPkgs = [
-        pkgs.gsettings-desktop-schemas
-        pkgs.gtk3
-        pkgs.gtk4
-        pkgs.xdg-desktop-portal-gtk
-      # Add any other GTK apps here if they have their own schemas
-      ];
-      # Use a Nix function to build the correct search path string
-      schemaPath = pkgs.lib.makeSearchPath "share" schemaPkgs;
-    in "${schemaPath}:${builtins.getEnv "XDG_DATA_DIRS"}";
-  };
-  # Add this systemd service to handle schema compilation
-  systemd.user.services.compile-gschemas = {
-    Unit.Description = "Compile GSettings schemas";
-    Service = {
-      Type = "oneshot";
-      ExecStart = "${pkgs.glib.bin}/bin/glib-compile-schemas ${config.home.homeDirectory}/.local/share/glib-2.0/schemas";
-    };
-    Install.WantedBy = ["default.target"];
-  };
-
-  # Add this to create a wrapper for gsettings
-  home.file.".local/bin/gsettings-wrapper" = {
-    text = ''
-      #!/bin/sh
-      export XDG_DATA_DIRS="${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}:${pkgs.gtk4}/share/gsettings-schemas/${pkgs.gtk4.name}:${pkgs.xdg-desktop-portal-gtk}/share:/usr/share:/usr/local/share"
-      exec ${pkgs.glib.bin}/bin/gsettings "$@"
-    '';
-    executable = true;
   };
 }
