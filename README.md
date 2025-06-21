@@ -1,5 +1,3 @@
----
-
 # Declarative Suckless Desktop on NixOS
 
 <div align="center">
