@@ -1,3 +1,5 @@
+---
+
 # Declarative Suckless Desktop on NixOS
 
 <div align="center">
@@ -27,7 +29,7 @@ The core principle is to treat the **manually prepared Suckless source code** as
 - [System Structure](#system-structure)
 - [The Declarative Suckless Build Process](#the-declarative-suckless-build-process)
 - [Key Configuration Details](#key-configuration-details)
-  - [Solving GTK Theming and GSettings](#solving-gtk-theming-and-gsettings)
+  - [Daemon-less GTK Theming](#daemon-less-gtk-theming)
   - [System Hardening and Optimization](#system-hardening-and-optimization)
   - [The `xinitrc` Session](#the-xinitrc-session)
 - [Installation and Replication](#installation-and-replication)
@@ -46,7 +48,7 @@ By combining them, we achieve the ultimate goal: a system where even our custom-
 
 -   **Fully Declarative:** The entire system is managed by the Nix Flake in this repository.
 -   **Custom Suckless Stack:** `dwm`, `st`, `dmenu`, and `slstatus` are all built from user-customized local source code.
--   **Robust GTK/GSettings Theming:** A clean, declarative solution ensures GTK2, GTK3, and GTK4 applications are themed correctly without daemons or complex wrappers.
+-   **Robust, Daemon-less GTK Theming:** A clean, declarative solution ensures GTK2, GTK3, and GTK4 applications are themed correctly without relying on daemons like `dconf` or complex wrappers.
 -   **Home Manager:** Manages all user-level configuration, including dotfiles, packages, services, and environment variables.
 -   **Minimalist Session Management:** Uses a declarative `~/.xinitrc` file to launch the `dwm` session via `startx`, which is triggered automatically on console login.
 -   **System Hardening:** Includes security-focused kernel parameters and a hardened Avahi configuration.
@@ -89,15 +91,16 @@ The magic happens in `users/blfnix.nix` within the `buildCustomSucklessTool` fun
 
 ## Key Configuration Details
 
-### Solving GTK Theming and GSettings
+### Daemon-less GTK Theming
 
-Getting modern GTK applications to respect themes in a minimal, non-GNOME environment is a significant challenge. This configuration solves it cleanly with a three-part strategy:
+Getting modern GTK applications to respect themes in a minimal environment is a significant challenge. This configuration solves it cleanly and without background services like `dconf`.
 
-1.  **System-Level Packages:** All core GTK libraries (`gtk3`, `gtk4`), the `gsettings` tool (`glib`), and schema providers (`gsettings-desktop-schemas`) are installed in `configuration.nix`. This provides a stable, system-wide foundation and ensures a correctly constructed base environment.
-2.  **Declarative `settings.ini` Files:** The desired theme and font settings are written to `~/.config/gtk-3.0/settings.ini` and `~/.config/gtk-4.0/settings.ini` by Home Manager. This is the "source of truth" for the theme.
-3.  **Session-Start Schema Compilation:** The `.xinitrc` file executes `glib-compile-schemas` when the graphical session starts. This crucial step reads all available schemas (from the system-installed packages) and creates a fast-loading binary cache in the user's home directory. This cache is what GTK applications actually use, resolving all discovery issues.
+1.  **System-Level Libraries:** The core GTK libraries (`gtk3`, `gtk4`) are installed in `configuration.nix`. This provides a stable, system-wide foundation.
+2.  **Declarative `settings.ini` Files:** The desired theme, font, and icon settings are written directly to `~/.config/gtk-3.0/settings.ini` and `~/.config/gtk-4.0/settings.ini` by Home Manager. These files serve as the "source of truth".
+3.  **Forceful Theme Override:** The environment variable `GTK_THEME` is set to `"Adwaita:dark"` in `home.sessionVariables`. This "Theme:Variant" syntax is a powerful override that forces both GTK3 and GTK4 applications to use the dark variant of the Adwaita theme, bypassing any reliance on desktop portal infrastructure. This is the key to consistent theming for applications like Brave and LibreOffice.
+4.  **No GSettings Tool:** The `gsettings` command-line tool is not installed, as all necessary settings are managed declaratively through the `.ini` files and the `GTK_THEME` variable.
 
-This combination avoids complex wrappers, environment variable hacks, and unnecessary daemons like `dconf`.
+This combination avoids complex wrappers and unnecessary daemons, staying true to the minimalist philosophy.
 
 ### System Hardening and Optimization
 
@@ -108,9 +111,9 @@ This configuration includes several non-default settings for improved security a
 
 ### The `xinitrc` Session
 
-The declarative `.xinitrc` is the heart of the user session. Beyond launching `dwm` and its companion apps, it now includes:
--   The `glib-compile-schemas` command to ensure GTK theming works.
--   A switch from `dbus-launch` to `systemd-cat` for executing `dwm`. This provides better integration with the systemd journal, making logs for the window manager accessible via `journalctl --identifier=dwm`.
+The declarative `.xinitrc` is the heart of the user session. It is now streamlined and robust:
+-   It exports all necessary theming variables (`GTK_THEME`, `XCURSOR_THEME`, etc.) at the start of the session.
+-   It uses `systemd-cat` to execute `dwm`. This provides better integration with the systemd journal, making logs for the window manager accessible via `journalctl --identifier=dwm`.
 
 ## Installation and Replication
 
