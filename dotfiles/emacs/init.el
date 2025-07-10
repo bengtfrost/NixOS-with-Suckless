@@ -13,6 +13,7 @@
 ;; --- Load Custom Configuration Modules ---
 (let ((lisp-dir (expand-file-name "lisp" user-emacs-directory)))
   (load-file (concat lisp-dir "/ui.el"))
+  (load-file (concat lisp-dir "/custom.el"))
   (load-file (concat lisp-dir "/keybinds.el"))
   (load-file (concat lisp-dir "/clojure.el"))
   (load-file (concat lisp-dir "/langs.el")))

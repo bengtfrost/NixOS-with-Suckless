@@ -263,6 +263,7 @@ in {
     "emacs/lisp/keybinds.el".source = ./../dotfiles/emacs/lisp/keybinds.el;
     "emacs/lisp/clojure.el".source = ./../dotfiles/emacs/lisp/clojure.el;
     "emacs/lisp/langs.el".source = ./../dotfiles/emacs/lisp/langs.el;
+    "emacs/lisp/custom.el".source = ./../dotfiles/emacs/lisp/custom.el;
   };  
 
   # --- Xresources (Managed by Home Manager at ~/.config/Xresources) --- 

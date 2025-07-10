@@ -12,7 +12,13 @@
 
 ;; --- Indentation Settings ---
 (setq-default indent-tabs-mode nil) ; Use spaces instead of tab characters.
-(setq-default tab-width 2)          ; Set the visual width of a tab to 2 spaces.
+(setq-default tab-width 1)          ; Set the visual width of a tab to 1 spaces.
+
+;; --- Theme Customization ---
+;; Set custom theme variables BEFORE loading the theme.
+;; This changes the background color of the active modeline for the doom-one theme.
+;; (setq doom-one-modeline-bg "darkgrey")
+;; You can also use a more specific hex code for a nicer grey, e.g., "#333333"
 
 ;; --- Theme ---
 ;; Doom themes have excellent support for 256-color terminals. The appearance
@@ -20,7 +26,8 @@
 (use-package doom-themes
   :ensure t
   :config
-  (load-theme 'doom-monokai-pro t))
+  ;; Load the theme that you are customizing.
+  (load-theme 'doom-molokai t))
 
 ;; --- Minibuffer/Completion Enhancements ---
 ;; These packages work perfectly in the terminal.

@@ -27,10 +27,9 @@
   :config
   (setq company-idle-delay 0.2)
   ;; Make Tab complete if a suggestion is available, otherwise indent the line.
-  (define-key company-active-map (kbd "<tab>") #'company-complete-selection)
-  (define-key company-active-map (kbd "TAB") #'company-complete-selection)
-  (define-key company-mode-map (kbd "<tab>") #'company-indent-or-complete-common)
-  (define-key company-mode-map (kbd "TAB") #'company-indent-or-complete-common))
+  ;; Replace the old binding with our new custom function.
+  (define-key company-mode-map (kbd "<tab>") #'blfnix/smart-tab)
+  (define-key company-mode-map (kbd "TAB") #'blfnix/smart-tab))
 
 ;; --- Treesitter for better syntax highlighting ---
 ;; Emacs 29+ has this built-in. This ensures it's configured and modes are installed.
@@ -53,6 +52,7 @@
   :ensure t
   :config
   (add-hook 'rust-mode-hook #'lsp-deferred))
+
 
 ;; Python
 (use-package python-mode
