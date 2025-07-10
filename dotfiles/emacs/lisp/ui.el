@@ -10,6 +10,10 @@
 (global-display-line-numbers-mode 1) ; Show line numbers
 (column-number-mode 1)             ; Show the current column number
 
+;; --- Indentation Settings ---
+(setq-default indent-tabs-mode nil) ; Use spaces instead of tab characters.
+(setq-default tab-width 2)          ; Set the visual width of a tab to 2 spaces.
+
 ;; --- Theme ---
 ;; Doom themes have excellent support for 256-color terminals. The appearance
 ;; will be mapped to your terminal emulator's color palette.
