@@ -6,7 +6,7 @@
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-  boot.initrd.luks.devices."luks-8e49ba55-1183-47f4-86af-d1a814d1ef3c".device = "/dev/disk/by-uuid/8e49ba55-1183-47f4-86af-d1a814d1ef3c";
+  boot.initrd.luks.devices."luks-054b4d94-a266-4599-b935-c25885dff59f".device = "/dev/disk/by-uuid/054b4d94-a266-4599-b935-c25885dff59f";
 
   # Security Hardening
   boot.kernelParams = [
@@ -17,9 +17,23 @@
 
   boot.loader.systemd-boot.configurationLimit = 10;
 
+  # boot.kernel.sysctl = {
+  # Disable IPv6 entirely
+  # "net.ipv6.conf.all.disable_ipv6" = 1;
+  # "net.ipv6.conf.default.disable_ipv6" = 1;
+  # };
+
   networking.hostName = "nixos";
   networking.networkmanager.enable = true;
   programs.nm-applet.enable = false;  # Explicitly disabled for DWM
+
+  networking.firewall = {
+    enable = true; # This is likely enabled by default
+    allowedTCPPortRanges = [
+      # Open a range of high-numbered ports for local streaming apps like catt
+      { from = 45000; to = 47000; }
+    ];
+  };  
 
   time.timeZone = "Europe/Stockholm";
   i18n.defaultLocale = "sv_SE.UTF-8";
@@ -80,10 +94,10 @@
     wget gitMinimal fontconfig
     xorg.xinit xorg.xrdb xorg.xsetroot xorg.xev
     slock # Install slock system-wide from Nixpkgs
-    brave
     gtk3                        # Provides GTK3 schemas
     gtk4                        # Provides GTK4 schemas
     xdg-desktop-portal-gtk      # Provides GTK4 portal backend and schemas
+    brave
   ];
 
   # Ensure DBus and polkit are enabled

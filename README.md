@@ -1,15 +1,17 @@
+---
+
 # Declarative Suckless Desktop on NixOS
 
 <div align="center">
 
 ![NixOS Logo](https://img.shields.io/badge/NixOS-25.05-5277C3.svg?style=for-the-badge&logo=NixOS&logoColor=white)
 ![Suckless DWM](https://img.shields.io/badge/suckless-dwm-blue.svg?style=for-the-badge)
-![Home Manager](https://img.shields.io/badge/Home--Manager-25.05-informational.svg?style=for-the-badge)
-![Nix Flakes](https://img.shields.io/badge/flakes-enabled-green.svg?style=for-the-badge)
+![Emacs](https://img.shields.io/badge/Emacs-29-7F5AB6.svg?style=for-the-badge&logo=GNU-Emacs&logoColor=white)
+![Clojure](https://img.shields.io/badge/Clojure-CIDER-58B566.svg?style=for-the-badge&logo=Clojure&logoColor=white)
 
 </div>
 
-This repository contains a complete, declarative configuration for a minimal and powerful desktop environment on NixOS. It fuses the minimalist philosophy of the [suckless.org](https://suckless.org/) toolset with the reproducible and robust system management of NixOS, using Flakes and Home Manager.
+This repository contains a complete, declarative configuration for a minimal and powerful desktop environment on NixOS. It fuses the minimalist philosophy of the [suckless.org](https://suckless.org/) toolset with the reproducible and robust system management of NixOS, using Flakes and Home Manager. The primary development environment is a terminal-based **Emacs**, configured for a first-class interactive **Clojure** workflow.
 
 The core principle is to treat the **manually prepared Suckless source code** as the definitive input for the system build. All patching and `config.def.h` customization is done by you, directly on the source files, *before* invoking the Nix build. Nix then takes these pre-customized sources and builds them within a pure environment, resulting in a fully reproducible, custom-tailored desktop environment.
 
@@ -17,7 +19,7 @@ The core principle is to treat the **manually prepared Suckless source code** as
 
 <p align="center">
   <img src="./assets/nix-suckless-desktop.png" width="48%" alt="Clean dwm desktop with slstatus bar"/>
-  <img src="./assets/nix-suckless-apps.png" width="48%" alt="Desktop with st, helix, and a file manager"/>
+  <img src="./assets/nix-suckless-apps.png" width="48%" alt="Desktop with st, Emacs, and a file manager"/>
 </p>
 
 ## Table of Contents
@@ -28,8 +30,8 @@ The core principle is to treat the **manually prepared Suckless source code** as
 - [The Declarative Suckless Build Process](#the-declarative-suckless-build-process)
 - [Key Configuration Details](#key-configuration-details)
   - [Daemon-less GTK Theming](#daemon-less-gtk-theming)
+  - [Declarative Emacs Configuration](#declarative-emacs-configuration)
   - [System Hardening and Optimization](#system-hardening-and-optimization)
-  - [The `xinitrc` Session](#the-xinitrc-session)
 - [Installation and Replication](#installation-and-replication)
 - [Daily Workflow](#daily-workflow)
 
@@ -40,78 +42,75 @@ This setup is born from two ideals:
 1.  **Suckless:** Software that is simple, minimal, and does one thing well. The configuration is done by patching and editing the C source code directly.
 2.  **NixOS:** A Linux distribution where the entire system configuration—from the kernel to packages to dotfiles—is defined in a set of declarative files. Builds are reproducible and atomic.
 
-By combining them, we achieve the ultimate goal: a system where even our custom-patched window manager and terminal are just another part of a single, version-controlled, reproducible configuration.
+By combining them, we achieve the ultimate goal: a system where even our custom-patched window manager and terminal, alongside a fully configured Emacs IDE, are just another part of a single, version-controlled, reproducible configuration.
 
 ## Features
 
 -   **Fully Declarative:** The entire system is managed by the Nix Flake in this repository.
 -   **Custom Suckless Stack:** `dwm`, `st`, `dmenu`, and `slstatus` are all built from user-customized local source code.
--   **Robust, Daemon-less GTK Theming:** A clean, declarative solution ensures GTK2, GTK3, and GTK4 applications are themed correctly without relying on daemons like `dconf` or complex wrappers.
--   **Home Manager:** Manages all user-level configuration, including dotfiles, packages, services, and environment variables.
--   **Minimalist Session Management:** Uses a declarative `~/.xinitrc` file to launch the `dwm` session via `startx`, which is triggered automatically on console login.
--   **System Hardening:** Includes security-focused kernel parameters and a hardened Avahi configuration.
--   **Nix Store Optimization:** Configured for automatic garbage collection and store optimization.
--   **Modern Shell:** Zsh with auto-suggestions, syntax highlighting, and useful aliases, with `PATH` managed declaratively by Home Manager.
+-   **Modern Emacs IDE:** A minimal, terminal-based Emacs (`emacs-nox`) setup with powerful, discoverable keybindings and a focus on interactive Clojure development with CIDER.
+-   **Shared Development Toolchain:** Language servers (`clojure-lsp`, `ruff`, `nil`) and formatters are managed by NixOS and shared between all tools.
+-   **Robust, Daemon-less GTK Theming:** A clean, declarative solution ensures GTK2, GTK3, and GTK4 applications are themed correctly without relying on daemons.
+-   **Home Manager:** Manages all user-level configuration, including dotfiles, packages, services, and the Emacs configuration itself.
+-   **Minimalist Session Management:** Uses a declarative `~/.xinitrc` file to launch the `dwm` session via `startx`.
 
 ## System Structure
 
-The repository is organized to clearly separate concerns:
+The repository is organized to clearly separate concerns, with a dedicated directory for the Emacs configuration.
 
 ```
 .
 ├── flake.nix                 # The central entry point for the entire system build.
 ├── configuration.nix         # System-level NixOS settings (kernel, packages, etc.).
-├── hardware-configuration.nix  # Hardware-specific settings (auto-generated).
 ├── users/
-│   └── blfnix.nix            # User-level configuration via Home Manager.
-├── suckless-configs/         # Raw source code for the suckless tools. This is where you edit config.def.h!
-│   ├── ...
-├── dotfiles/                 # Static configuration files (e.g., for helix).
+│   └── blfnix.nix            # User-level config via Home Manager (packages, services).
+├── suckless-configs/         # Raw source code for the suckless tools. Edit config.def.h here!
 │   └── ...
+├── dotfiles/                 # Static configuration files managed by Home Manager.
+│   └── emacs/                # Modular Emacs configuration in Lisp.
+│       ├── init.el
+│       └── lisp/
+│           ├── clojure.el
+│           ├── keybinds.el
+│           ├── langs.el
+│           └── ui.el
 └── assets/                   # Screenshots for the README.
-    ├── nix-suckless-apps.png
-    └── nix-suckless-desktop.png
+    └── ...
 ```
 
 -   **`flake.nix`**: Defines the project's inputs (nixpkgs, home-manager) and orchestrates the build.
 -   **`configuration.nix`**: Defines the machine, including system-wide packages, fonts, and security settings.
--   **`users/blfnix.nix`**: Defines the user environment, containing the Suckless build logic and all user-level configuration.
--   **`suckless-configs/`**: The heart of the customization. It holds the source code for each suckless tool, which you modify directly.
+-   **`users/blfnix.nix`**: Defines the user environment, containing the Suckless build logic and installing all user-level packages like Emacs and its language tools.
+-   **`suckless-configs/`**: Holds the source code for each suckless tool, which you modify directly.
+-   **`dotfiles/emacs/`**: Contains the modular Emacs configuration, which is symlinked into `~/.config/emacs` by Home Manager.
 
 ## The Declarative Suckless Build Process
 
-The magic happens in `users/blfnix.nix` within the `buildCustomSucklessTool` function. This function creates a Nix derivation that treats your manually prepared source code as its input. It is crucial to understand the division of labor:
+The magic happens in `users/blfnix.nix`. A custom Nix function builds the suckless tools from your manually prepared source code.
 
--   **Your Role (Manual Preparation):** Before building, you directly modify the source code in the `suckless-configs/` directory. This includes editing `config.def.h` and applying any necessary patches with standard tools.
--   **Nix's Role (Reproducible Build):** After your preparation is complete, `nixos-rebuild switch` executes the Nix derivation, compiling your customized code in a pure environment.
-
-> **Note on the `patches/` directories:** These exist only as a convenient place to store patch files. Patching must be done by you on the source code before a build.
+-   **Your Role (Manual Preparation):** Before building, you directly modify the source code in the `suckless-configs/` directory. This includes editing `config.def.h` and applying patches.
+-   **Nix's Role (Reproducible Build):** After your preparation, `nixos-rebuild switch` executes the Nix derivation, compiling your customized code in a pure environment.
 
 ## Key Configuration Details
 
 ### Daemon-less GTK Theming
 
-Getting modern GTK applications to respect themes in a minimal environment is a significant challenge. This configuration solves it cleanly and without background services like `dconf`.
+This configuration achieves consistent GTK theming without background services by:
+1.  Installing core GTK libraries system-wide.
+2.  Using Home Manager to write `settings.ini` files.
+3.  Setting the `GTK_THEME` environment variable to forcefully override application themes.
 
-1.  **System-Level Libraries:** The core GTK libraries (`gtk3`, `gtk4`) are installed in `configuration.nix`. This provides a stable, system-wide foundation.
-2.  **Declarative `settings.ini` Files:** The desired theme, font, and icon settings are written directly to `~/.config/gtk-3.0/settings.ini` and `~/.config/gtk-4.0/settings.ini` by Home Manager. These files serve as the "source of truth".
-3.  **Forceful Theme Override:** The environment variable `GTK_THEME` is set to `"Adwaita:dark"` in `home.sessionVariables`. This "Theme:Variant" syntax is a powerful override that forces both GTK3 and GTK4 applications to use the dark variant of the Adwaita theme, bypassing any reliance on desktop portal infrastructure. This is the key to consistent theming for applications like Brave and LibreOffice.
-4.  **No GSettings Tool:** The `gsettings` command-line tool is not installed, as all necessary settings are managed declaratively through the `.ini` files and the `GTK_THEME` variable.
+### Declarative Emacs Configuration
 
-This combination avoids complex wrappers and unnecessary daemons, staying true to the minimalist philosophy.
+The Emacs setup is a core part of this workflow, designed to be powerful yet minimal.
+-   **Installation:** `emacs-nox` is installed via `home.packages` for a terminal-only experience. All required language servers (`clojure-lsp`, etc.) are also installed here, making them available system-wide.
+-   **Configuration:** The configuration is written in modular Emacs Lisp files within `dotfiles/emacs/`. Home Manager links this directory to `~/.config/emacs`.
+-   **Keybindings:** A modern, non-modal keybinding scheme is implemented using a `Space` leader key, with the `which-key` package providing discoverable pop-up menus. This makes the powerful features of Emacs accessible without memorizing obscure key chords.
+-   **Clojure Focus:** The environment is tailored for interactive Clojure development using CIDER, the de-facto standard REPL-driven development tool.
 
 ### System Hardening and Optimization
 
-This configuration includes several non-default settings for improved security and performance:
--   **Kernel Parameters:** `slab_nomerge`, `init_on_alloc=1`, and `page_alloc.shuffle=1` are enabled for memory allocation hardening.
--   **Nix Store Optimization:** `nix.settings.auto-optimise-store = true;` is enabled to reduce storage space by hard-linking identical files.
--   **Hardened Services:** The Avahi daemon is configured with publishing features explicitly disabled for a reduced attack surface.
-
-### The `xinitrc` Session
-
-The declarative `.xinitrc` is the heart of the user session. It is now streamlined and robust:
--   It exports all necessary theming variables (`GTK_THEME`, `XCURSOR_THEME`, etc.) at the start of the session.
--   It uses `systemd-cat` to execute `dwm`. This provides better integration with the systemd journal, making logs for the window manager accessible via `journalctl --identifier=dwm`.
+This configuration includes several non-default settings for improved security and performance, including kernel parameter hardening and automatic Nix store optimization.
 
 ## Installation and Replication
 
@@ -125,9 +124,10 @@ To use this configuration on your own machine:
 
 ## Daily Workflow
 
--   **To change a `dwm` keybinding:** Edit `suckless-configs/dwm/config.def.h` and run `nix-update-system`.
--   **To change your terminal's appearance:** Edit `suckless-configs/st/config.def.h` and run `nix-update-system`.
--   **To add a new application:** Add it to `home.packages` in `users/blfnix.nix` and run `nix-update-system`.
+-   **To change a `dwm` keybinding:** Edit `suckless-configs/dwm/config.def.h`, then run `sudo nixos-rebuild switch --flake .`.
+-   **To change Emacs behavior:** Edit the relevant `.el` file in `dotfiles/emacs/`, then restart Emacs.
+-   **To add a new application:** Add it to `home.packages` in `users/blfnix.nix`, then run `home-manager switch --flake .`.
+-   **Clojure Development:** Open a `.clj` file in Emacs, run `M-x cider-jack-in` to start the interactive REPL, and evaluate code directly from your editor.
 
 ---
 *This configuration is provided under the MIT License.*

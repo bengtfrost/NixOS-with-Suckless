@@ -217,7 +217,7 @@ in {
     # gtk4                        # Provides GTK4 schemas
 
     # === Helix Editor and its LSPs/Formatters ===
-    helix
+    # helix
     marksman ruff nodePackages.typescript-language-server
     nodePackages.vscode-json-languageserver nodePackages.yaml-language-server
     taplo bash-language-server nil
@@ -241,8 +241,29 @@ in {
     aider-chat litellm
     pulseaudio # Provides pactl and other PulseAudio client utilities
     htop
+
+    # === Install Clojure, LSP, Tools and Scripting ===
+    clojure       # Official Clojure CLI (deps.edn based)
+    clojure-lsp   # Language server for Helix and other editors
+    leiningen     # Optional build tool
+    babashka      # Optional lightweight scripting
+
+    # === Add Emacs and essential companions ===
+    emacs-nox
+    # emacs
+    ## emacs-pgtk # Modern Emacs build with native Wayland/X11 pgtk support
+    # ripgrep     # For fast project-wide searching
+    # fd          # For fast file finding
   ];
 
+  # === Manage Emacs Configuration Files ===
+  xdg.configFile = {
+    "emacs/init.el".source = ./../dotfiles/emacs/init.el;
+    "emacs/lisp/ui.el".source = ./../dotfiles/emacs/lisp/ui.el;
+    "emacs/lisp/keybinds.el".source = ./../dotfiles/emacs/lisp/keybinds.el;
+    "emacs/lisp/clojure.el".source = ./../dotfiles/emacs/lisp/clojure.el;
+    "emacs/lisp/langs.el".source = ./../dotfiles/emacs/lisp/langs.el;
+  };  
 
   # --- Xresources (Managed by Home Manager at ~/.config/Xresources) --- 
   home.file.".Xresources" = {
@@ -295,14 +316,14 @@ in {
   programs.zsh = {
     enable = true;
     # Use 'profileExtra' for content added to ~/.zprofile (for login shells)
-      profileExtra = ''
+    profileExtra = ''
     # Start X server automatically if on tty1 and no X session is running
     if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
       if ! pgrep -x Xorg > /dev/null && ! pgrep -x Xwayland > /dev/null; then
         startx
       fi
     fi
-  '';
+    '';
     
     autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
@@ -329,24 +350,38 @@ in {
       save = 10000;
     };
     initContent = ''
-      bindkey -v # Enable Vi Keybindings
-
-      # === BAD SETTINGS - INTERFERING WITH SYSTEM ENV - AVOID! ===
-      # Correct way - see above
-      # export PATH="$HOME/.cargo/bin:$PATH"
-      # export PATH="$HOME/.local/bin:$PATH"
-      # export PATH="$HOME/.npm-global/bin:$PATH"
-
+      # bindkey -v  # Enable Vi keybindings
       export KEYTIMEOUT=150
 
-      # Custom Functions (ensure these are fully defined from your working config)
+      # === Virtualenv Activation Helpers ===
+      _activate_venv() {
+        local venv_name="$1"; local venv_activate_path="$2"
+        if [[ ! -f "$venv_activate_path" ]]; then
+          echo "Error: Venv script $venv_activate_path not found" >&2
+          return 1
+        fi
+        if (( $+commands[deactivate] )) && [[ "$(type -t deactivate)" != "builtin" ]]; then
+          deactivate
+      fi
+      . "$venv_activate_path" && echo "Activated venv: $venv_name"
+      }
+
+      v_mlmenv() {
+        _activate_venv "mlmenv (Python 3.13)" "$HOME/.venv/python3.13/mlmenv/bin/activate"
+      }
+
+      v_crawl4ai() {
+        _activate_venv "crawl4ai (Python 3.13)" "$HOME/.venv/python3.13/crawl4ai/bin/activate"
+      }
+
+      # === multipull: Update git repos recursively ===
       multipull() {
-        local BASE_DIR=~/.code
+        local BASE_DIR="$HOME/.code"
         if [[ ! -d "$BASE_DIR" ]]; then echo "multipull: Base dir $BASE_DIR not found" >&2; return 1; fi
         echo "Searching Git repos under $BASE_DIR..."
         fd --hidden --no-ignore --type d '^\.git$' "$BASE_DIR" | while read -r gitdir; do
           local workdir=$(dirname "$gitdir")
-          echo -e "\n=== Updating $workdir ==="
+          echo -e "\\n=== Updating $workdir ==="
           if (cd "$workdir" && git rev-parse --abbrev-ref --symbolic-full-name '@{u}' &>/dev/null); then
             git -C "$workdir" pull
           else
@@ -354,16 +389,30 @@ in {
             echo "--- Skipping pull (no upstream for branch: $branch) ---"
           fi
         done
-        echo -e "\nMultipull finished."
+        echo -e "\\nMultipull finished."
       }
-      _activate_venv() {
-        local venv_name="$1"; local venv_activate_path="$2"
-        if [[ ! -f "$venv_activate_path" ]]; then echo "Error: Venv script $venv_activate_path not found" >&2; return 1; fi
-        if (( $+commands[deactivate] )) && [[ "$(type -t deactivate)" != "builtin" ]]; then deactivate; fi
-        . "$venv_activate_path" && echo "Activated venv: $venv_name"
+
+      # === ycast: YouTube -> Chromecast via yt-dlp + catt (venv) ===
+      ycast() {
+        local VENV_BIN="$HOME/.venv/python3.13/mlmenv/bin"
+        local ytdlp_bin="$VENV_BIN/yt-dlp"
+        local catt_bin="$VENV_BIN/catt"
+
+        if [ ! -x "$ytdlp_bin" ]; then
+          echo "Error: yt-dlp not found at $ytdlp_bin" >&2
+          return 1
+        fi
+        if [ ! -x "$catt_bin" ]; then
+          echo "Error: catt not found at $catt_bin" >&2
+          return 1
+        fi
+        if [ $# -eq 0 ]; then
+          echo "Usage: ycast <YouTube-URL> [more URLs...]" >&2
+          return 1
+        fi
+
+        "$ytdlp_bin" -g "$@" | xargs -n1 "$catt_bin" cast
       }
-      v_mlmenv() { _activate_venv "mlmenv (Python 3.13)" "$HOME/.venv/python3.13/mlmenv/bin/activate"; }
-      v_crawl4ai() { _activate_venv "crawl4ai (Python 3.13)" "$HOME/.venv/python3.13/crawl4ai/bin/activate"; }
     '';
   };
 
@@ -385,7 +434,7 @@ in {
     enable = true;
     userName = "Bengt Frost";
     userEmail = "bengtfrost@gmail.com";
-    extraConfig = { core.editor = "hx"; init.defaultBranch = "main"; }; # Editor changed to hx
+    extraConfig = { core.editor = "emacs"; init.defaultBranch = "main"; }; # Editor changed to emacs
   };
 
   programs.fzf = {
@@ -495,8 +544,8 @@ in {
   */
 
   # --- HELIX CONFIGURATION (via dotfiles) ---
-  xdg.configFile."helix/languages.toml".source = ../dotfiles/helix/languages.toml;
-  xdg.configFile."helix/config.toml".source = ../dotfiles/helix/config.toml;
+  # xdg.configFile."helix/languages.toml".source = ../dotfiles/helix/languages.toml;
+  # xdg.configFile."helix/config.toml".source = ../dotfiles/helix/config.toml;
 
   # --- GTK Themeing (Manual, for minimal WMs) ---
   # This replaces the home-manager gtk module to avoid dconf issues.
@@ -547,7 +596,7 @@ in {
 
   # --- Home Manager Session Variables ---
   home.sessionVariables = {
-    EDITOR = "hx"; VISUAL = "hx"; PAGER = "less";
+    EDITOR = "emacs"; VISUAL = "emacs"; PAGER = "less";
     CC = "clang"; CXX = "clang++";
     GIT_TERMINAL_PROMPT = "1";
     FZF_ALT_C_COMMAND = "fd --type d --hidden --follow --exclude .git";
